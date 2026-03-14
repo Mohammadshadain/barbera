@@ -1,0 +1,85 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Application user profile",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["customer", "admin"] },
+        "photoURL": { "type": "string" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Barber": {
+      "title": "Barber",
+      "description": "Barber shop staff",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "speciality": { "type": "string" },
+        "workingHours": {
+          "type": "object",
+          "properties": {
+            "start": { "type": "string" },
+            "end": { "type": "string" }
+          }
+        },
+        "rating": { "type": "number" },
+        "photoURL": { "type": "string" }
+      },
+      "required": ["name", "speciality"]
+    },
+    "Service": {
+      "title": "Service",
+      "description": "Grooming service offered",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "duration": { "type": "number" },
+        "photoURL": { "type": "string" }
+      },
+      "required": ["name", "price", "duration"]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "Appointment booking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "barberId": { "type": "string" },
+        "serviceId": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "slot": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "cancelled"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "barberId", "serviceId", "date", "slot", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/barbers/{barberId}": {
+      "schema": "Barber",
+      "description": "Barber details"
+    },
+    "/services/{serviceId}": {
+      "schema": "Service",
+      "description": "Service details"
+    },
+    "/bookings/{bookingId}": {
+      "schema": "Booking",
+      "description": "Appointment records"
+    }
+  }
+}
