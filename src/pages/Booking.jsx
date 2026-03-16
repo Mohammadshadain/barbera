@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { collection, getDocs, addDoc } from 'firebase/firestore';
-import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle, ChevronLeft, Star } from 'lucide-react';
@@ -25,11 +23,15 @@ const BookingPage = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const servicesSnap = await getDocs(collection(db, 'services'));
-        let servicesData = servicesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const servicesRes = await fetch('/api/services');
+        if (!servicesRes.ok) throw new Error('Failed to fetch services');
+        const servicesDataRaw = await servicesRes.json();
+        let servicesData = Array.isArray(servicesDataRaw) ? servicesDataRaw : [];
         
-        const barbersSnap = await getDocs(collection(db, 'barbers'));
-        let barbersData = barbersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const barbersRes = await fetch('/api/barbers');
+        if (!barbersRes.ok) throw new Error('Failed to fetch barbers');
+        const barbersDataRaw = await barbersRes.json();
+        let barbersData = Array.isArray(barbersDataRaw) ? barbersDataRaw : [];
 
         // Fallback data if DB is empty
         if (servicesData.length === 0) {
@@ -59,7 +61,7 @@ const BookingPage = () => {
         // Handle pre-selected service from URL
         const serviceId = searchParams.get('service');
         if (serviceId) {
-          const service = servicesData.find(s => s.id === serviceId);
+          const service = servicesData.find(s => s.id.toString() === serviceId);
           if (service) {
             setSelectedService(service);
             setStep(2);
@@ -67,6 +69,17 @@ const BookingPage = () => {
         }
       } catch (error) {
         console.error("Error fetching data:", error);
+        // Fallback mock data on error
+        setServices([
+          { id: 's1', name: 'Signature Haircut', price: 45, duration: 45, description: 'Our master barbers provide a precision cut tailored to your head shape and style.', photoURL: 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&q=80&w=800' },
+          { id: 's2', name: 'Beard Sculpting', price: 30, duration: 30, description: 'Complete beard grooming including shaping, trimming, and hot towel finish.', photoURL: 'https://images.unsplash.com/photo-1621605815841-aa88c82b0248?auto=format&fit=crop&q=80&w=800' },
+          { id: 's3', name: 'Premium Headwash', price: 25, duration: 20, description: 'Relaxing scalp massage and deep cleansing with premium organic products.', photoURL: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&q=80&w=800' }
+        ]);
+        setBarbers([
+          { id: 'b1', name: 'Alex', speciality: 'Fade Specialist', experience: '8+ Years', photoURL: 'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?auto=format&fit=crop&q=80&w=800' },
+          { id: 'b2', name: 'David', speciality: 'Classic Cuts', experience: '12+ Years', photoURL: 'https://images.unsplash.com/photo-1512690196252-741d2fd36ad0?auto=format&fit=crop&q=80&w=800' },
+          { id: 'b3', name: 'Marcus', speciality: 'Beard Styling', experience: '6+ Years', photoURL: 'https://images.unsplash.com/photo-1622286332618-f2802b9c74bc?auto=format&fit=crop&q=80&w=800' }
+        ]);
       } finally {
         setLoading(false);
       }
@@ -88,12 +101,17 @@ const BookingPage = () => {
         serviceName: selectedService.name,
         date: format(selectedDate, 'yyyy-MM-dd'),
         slot: selectedSlot,
-        status: 'pending',
-        createdAt: new Date().toISOString(),
         price: selectedService.price
       };
 
-      await addDoc(collection(db, 'bookings'), bookingData);
+      const response = await fetch('/api/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bookingData)
+      });
+
+      if (!response.ok) throw new Error('Booking failed');
+      
       setStep(5); // Success step
     } catch (error) {
       console.error("Booking error:", error);

@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowRight, Star, Clock, ShieldCheck, DollarSign, Sparkles, CalendarCheck, UserCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../firebase';
 
 const Home = () => {
   const [services, setServices] = useState([]);
@@ -35,23 +33,33 @@ const Home = () => {
   useEffect(() => {
     const fetchServices = async () => {
       try {
-        const querySnapshot = await getDocs(collection(db, 'services'));
-        const servicesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const response = await fetch('/api/services');
+        if (!response.ok) throw new Error('Failed to fetch');
+        const servicesData = await response.json();
         
-        if (servicesData.length === 0) {
+        // Ensure servicesData is an array
+        const servicesArray = Array.isArray(servicesData) ? servicesData : [];
+        
+        if (servicesArray.length === 0) {
           setServices([
             { id: '1', name: 'Signature Haircut', description: 'Precise fading and styling tailored to your face shape.', price: 45, duration: 45, photoURL: 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&q=80&w=800' },
-            { id: '2', name: 'Beard Sculpting', description: 'Line-up, trim, and hot towel treatment for the modern beard.', price: 30, duration: 30, photoURL: 'https://images.unsplash.com/photo-1599351431247-f10b21ce49b3?auto=format&fit=crop&q=80&w=800' },
             { id: '3', name: 'Premium Headwash', description: 'Relaxing scalp massage and premium deep conditioning treatment.', price: 25, duration: 20, photoURL: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&q=80&w=800' },
-            { id: '4', name: 'Hair Coloring', description: 'Professional hair coloring with premium products.', price: 55, duration: 60, photoURL: 'https://images.unsplash.com/photo-1562322140-8baeececf3df?auto=format&fit=crop&q=80&w=800' },
-            { id: '5', name: 'Kids Haircut', description: 'Stylish and comfortable haircuts for kids.', price: 20, duration: 25, photoURL: 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&q=80&w=800' },
-            { id: '6', name: 'Hair & Beard Combo', description: 'Complete grooming package including haircut and beard styling.', price: 60, duration: 60, photoURL: 'https://images.unsplash.com/photo-1593702295094-ada74bc4a149?auto=format&fit=crop&q=80&w=800' }
+            { id: '4', name: 'Hair Coloring', description: 'Professional hair coloring using premium products for a stylish modern look.', price: 55, duration: 60, photoURL: 'https://images.unsplash.com/photo-1562322140-8baeececf3df?auto=format&fit=crop&q=80&w=800' }
           ]);
         } else {
-          setServices(servicesData);
+          // Filter to only show the 3 featured services on home page
+          const featuredNames = ['Signature Haircut', 'Premium Headwash', 'Hair Coloring'];
+          const filtered = servicesArray.filter(s => featuredNames.includes(s.name));
+          setServices(filtered.length > 0 ? filtered : servicesArray.slice(0, 3));
         }
       } catch (error) {
         console.error("Error fetching services:", error);
+        // Fallback to mock data on error
+        setServices([
+          { id: '1', name: 'Signature Haircut', description: 'Precise fading and styling tailored to your face shape.', price: 45, duration: 45, photoURL: 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&q=80&w=800' },
+          { id: '3', name: 'Premium Headwash', description: 'Relaxing scalp massage and premium deep conditioning treatment.', price: 25, duration: 20, photoURL: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&q=80&w=800' },
+          { id: '4', name: 'Hair Coloring', description: 'Professional hair coloring using premium products for a stylish modern look.', price: 55, duration: 60, photoURL: 'https://images.unsplash.com/photo-1562322140-8baeececf3df?auto=format&fit=crop&q=80&w=800' }
+        ]);
       } finally {
         setLoading(false);
       }
@@ -61,11 +69,15 @@ const Home = () => {
   }, []);
 
   const openChat = (e, service = null) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
+    
     window.dispatchEvent(new CustomEvent('start-booking', { 
       detail: { 
         service, 
-        x: e?.clientX, 
-        y: e?.clientY 
+        x, 
+        y 
       } 
     }));
   };
@@ -222,14 +234,11 @@ const Home = () => {
             <h1 className="text-4xl md:text-5xl font-black text-gradient">The Barbera Standard</h1>
           </div>
           
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-3 gap-8">
             {[
-              { icon: Star, title: "Elite Barbers", desc: "Hand-picked masters of the craft with years of precision experience.", back: "Top-rated grooming experience" },
-              { icon: Clock, title: "Smart Scheduling", desc: "Live availability and instant confirmation. No more waiting lines.", back: "Instant booking confirmation" },
-              { icon: ShieldCheck, title: "Premium Quality", desc: "Only the finest products and techniques for your signature style.", back: "Trusted by hundreds of clients" },
-              { icon: Sparkles, title: "Luxury Experience", desc: "Relax in a premium grooming environment designed for comfort and style.", back: "Unmatched comfort & style" },
-              { icon: CalendarCheck, title: "Easy Online Booking", desc: "Book your appointment anytime with a seamless online booking system.", back: "Book in under 60 seconds" },
-              { icon: UserCheck, title: "Personalized Styling", desc: "Get hairstyle recommendations tailored to your face shape and personality.", back: "Tailored to your unique look" }
+              { icon: Star, title: "Elite Barbers", desc: "Hand-picked masters of the craft with years of precision experience.", back: "Top-rated professionals trusted by hundreds of satisfied clients." },
+              { icon: Clock, title: "Smart Scheduling", desc: "Live availability and instant confirmation. No more waiting lines.", back: "Instant booking and real-time availability." },
+              { icon: ShieldCheck, title: "Premium Quality", desc: "Only the finest products and techniques for your signature style.", back: "Premium grooming products and expert techniques." }
             ].map((feature, i) => (
               <div key={i} className="group h-64 [perspective:1000px]">
                 <motion.div 

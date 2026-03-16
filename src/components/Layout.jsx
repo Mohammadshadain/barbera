@@ -24,9 +24,7 @@ const Layout = ({ children }) => {
           
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-400">
             <Link to="/services" className="hover:text-primary transition-colors">Services</Link>
-            <Link to="/booking" className="hover:text-primary transition-colors">
-              Book Now
-            </Link>
+            <Link to="/booking" className="hover:text-primary transition-colors">Book Now</Link>
             {profile && (
               <>
                 <Link to="/appointments" className="hover:text-primary transition-colors">My Bookings</Link>
@@ -75,7 +73,7 @@ const Layout = ({ children }) => {
         {children}
       </main>
 
-      {/* Sticky Logo */}
+      {/* Sticky Logo - Moved to bottom-left to avoid overlap with chatbot */}
       <div className="fixed bottom-8 left-8 z-[60] pointer-events-none">
         <div className="flex items-center gap-2 bg-background-dark/80 backdrop-blur-md border border-white/10 px-4 py-2 rounded-full shadow-2xl">
           <Scissors className="text-primary w-5 h-5" />
@@ -107,9 +105,17 @@ const Layout = ({ children }) => {
             <ul className="space-y-4 text-sm text-slate-500">
               <li><Link to="/services" className="hover:text-primary transition-colors">Services</Link></li>
               <li>
-                <Link to="/booking" className="hover:text-primary transition-colors">
+                <button 
+                  onClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    window.dispatchEvent(new CustomEvent('start-booking', { 
+                      detail: { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 } 
+                    }));
+                  }}
+                  className="hover:text-primary transition-colors cursor-pointer"
+                >
                   Book Appointment
-                </Link>
+                </button>
               </li>
               <li><Link to="/profile" className="hover:text-primary transition-colors">My Profile</Link></li>
               <li><Link to="/login" className="hover:text-primary transition-colors">Member Login</Link></li>

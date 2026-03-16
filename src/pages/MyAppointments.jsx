@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { collection, query, where, getDocs, updateDoc, doc, orderBy } from 'firebase/firestore';
-import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { Calendar, Clock, User, Scissors, XCircle, CheckCircle, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
@@ -16,15 +14,14 @@ const MyAppointments = () => {
 
     const fetchBookings = async () => {
       try {
-        const q = query(
-          collection(db, 'bookings'),
-          where('userId', '==', user.uid),
-          orderBy('createdAt', 'desc')
-        );
-        const querySnapshot = await getDocs(q);
-        setBookings(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        const response = await fetch(`/api/bookings/${user.uid}`);
+        if (!response.ok) throw new Error('Failed to fetch');
+        const data = await response.json();
+        // Ensure data is an array
+        setBookings(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error("Error fetching bookings:", error);
+        setBookings([]); // Ensure it's an array even on error
       } finally {
         setLoading(false);
       }
@@ -37,7 +34,10 @@ const MyAppointments = () => {
     if (!window.confirm("Are you sure you want to cancel this appointment?")) return;
     
     try {
-      await updateDoc(doc(db, 'bookings', bookingId), { status: 'cancelled' });
+      const response = await fetch(`/api/bookings/${bookingId}/cancel`, {
+        method: 'PATCH'
+      });
+      if (!response.ok) throw new Error('Cancel failed');
       setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'cancelled' } : b));
     } catch (error) {
       console.error("Cancel error:", error);

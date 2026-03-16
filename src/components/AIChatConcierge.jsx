@@ -3,14 +3,11 @@ import { motion, AnimatePresence } from 'motion/react';
 import { MessageSquare, X, Send, Bot, Scissors, Calendar, Clock, User, CheckCircle, ChevronRight, ChevronLeft } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { useAuth } from '../context/AuthContext';
-import { collection, getDocs, addDoc } from 'firebase/firestore';
-import { db } from '../firebase';
 import { format, addDays, isSameDay, startOfDay, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameMonth, addMonths } from 'date-fns';
 
 const AIChatConcierge = () => {
   const { user, profile } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
-  const [position, setPosition] = useState({ bottom: '1.5rem', right: '1.5rem' });
   const [messages, setMessages] = useState([
     { role: 'ai', text: "Hello! I'm Barbera, your digital concierge. How can I help you look your best today?" }
   ]);
@@ -30,11 +27,15 @@ const AIChatConcierge = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const servicesSnap = await getDocs(collection(db, 'services'));
-        let servicesData = servicesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const servicesRes = await fetch('/api/services');
+        if (!servicesRes.ok) throw new Error('Failed to fetch services');
+        const servicesDataRaw = await servicesRes.json();
+        let servicesData = Array.isArray(servicesDataRaw) ? servicesDataRaw : [];
         
-        const barbersSnap = await getDocs(collection(db, 'barbers'));
-        let barbersData = barbersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const barbersRes = await fetch('/api/barbers');
+        if (!barbersRes.ok) throw new Error('Failed to fetch barbers');
+        const barbersDataRaw = await barbersRes.json();
+        let barbersData = Array.isArray(barbersDataRaw) ? barbersDataRaw : [];
 
         // Fallback data if DB is empty
         if (servicesData.length === 0) {
@@ -62,6 +63,17 @@ const AIChatConcierge = () => {
         setBarbers(barbersData);
       } catch (error) {
         console.error("Error fetching chat data:", error);
+        // Fallback mock data on error
+        setServices([
+          { id: 's1', name: 'Signature Haircut', price: 45, duration: 45, description: 'Our master barbers provide a precision cut tailored to your head shape and style.', photoURL: 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&q=80&w=800' },
+          { id: 's2', name: 'Beard Sculpting', price: 30, duration: 30, description: 'Complete beard grooming including shaping, trimming, and hot towel finish.', photoURL: 'https://images.unsplash.com/photo-1621605815841-aa88c82b0248?auto=format&fit=crop&q=80&w=800' },
+          { id: 's3', name: 'Premium Headwash', price: 25, duration: 20, description: 'Relaxing scalp massage and deep cleansing with premium organic products.', photoURL: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&q=80&w=800' }
+        ]);
+        setBarbers([
+          { id: 'b1', name: 'Alex', speciality: 'Fade Specialist', experience: '8+ Years', photoURL: 'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?auto=format&fit=crop&q=80&w=800' },
+          { id: 'b2', name: 'David', speciality: 'Classic Cuts', experience: '12+ Years', photoURL: 'https://images.unsplash.com/photo-1512690196252-741d2fd36ad0?auto=format&fit=crop&q=80&w=800' },
+          { id: 'b3', name: 'Marcus', speciality: 'Beard Styling', experience: '6+ Years', photoURL: 'https://images.unsplash.com/photo-1622286332618-f2802b9c74bc?auto=format&fit=crop&q=80&w=800' }
+        ]);
       }
     };
     fetchData();
@@ -70,35 +82,18 @@ const AIChatConcierge = () => {
   useEffect(() => {
     const handleOpen = () => {
       setIsOpen(true);
-      setPosition({ bottom: '1.5rem', right: '1.5rem' });
     };
 
     const handleStartBooking = (e) => {
-      setIsOpen(true);
+      const { service } = e.detail || {};
+      
       // Reset booking state for new flow
       setBookingStep(0);
       setSelectedService(null);
       setSelectedBarber(null);
       setSelectedSlot(null);
-      
-      const { service, x, y } = e.detail || {};
 
-      if (x && y) {
-        // Position chatbot near click, ensuring it stays in viewport
-        const chatWidth = window.innerWidth < 640 ? 350 : 450;
-        const chatHeight = 600;
-        
-        let left = x - chatWidth / 2;
-        let top = y - chatHeight / 2;
-
-        // Boundary checks
-        left = Math.max(20, Math.min(window.innerWidth - chatWidth - 20, left));
-        top = Math.max(20, Math.min(window.innerHeight - chatHeight - 20, top));
-
-        setPosition({ top: `${top}px`, left: `${left}px` });
-      } else {
-        setPosition({ bottom: '1.5rem', right: '1.5rem' });
-      }
+      setIsOpen(true);
 
       if (service) {
         handleServiceSelect(service, true);
@@ -235,12 +230,17 @@ const AIChatConcierge = () => {
         serviceName: selectedService.name,
         date: format(selectedDate, 'yyyy-MM-dd'),
         slot: selectedSlot,
-        status: 'pending',
-        createdAt: new Date().toISOString(),
         price: selectedService.price
       };
 
-      await addDoc(collection(db, 'bookings'), bookingData);
+      const response = await fetch('/api/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bookingData)
+      });
+
+      if (!response.ok) throw new Error('Booking failed');
+      
       setBookingStep(5);
       setMessages(prev => [...prev, { 
         role: 'ai', 
@@ -303,24 +303,20 @@ const AIChatConcierge = () => {
   };
 
   const toggleChat = () => {
-    if (!isOpen) {
-      setPosition({ bottom: '1.5rem', right: '1.5rem' });
-    }
     setIsOpen(!isOpen);
   };
 
   return (
     <div 
-      className="fixed z-[9999] flex flex-col items-end pointer-events-none transition-all duration-500 ease-out"
-      style={position}
+      className="fixed bottom-6 right-6 z-[9999] flex flex-col items-end pointer-events-none"
     >
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            initial={{ opacity: 0, y: 20, scale: 0.95, originX: 1, originY: 1 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="glass w-[350px] sm:w-[450px] h-[600px] rounded-3xl border border-white/10 shadow-2xl flex flex-col overflow-hidden backdrop-blur-md bg-white/5 mb-4 pointer-events-auto"
+            className="glass w-[calc(100vw-3rem)] sm:w-[400px] md:w-[450px] h-[min(600px,calc(100vh-8rem))] rounded-3xl border border-white/10 shadow-2xl flex flex-col overflow-hidden backdrop-blur-md bg-white/5 mb-4 pointer-events-auto"
           >
             {/* Header */}
             <div className="p-4 bg-primary/5 border-b border-white/5 flex items-center justify-between">
